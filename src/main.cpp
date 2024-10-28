@@ -25,6 +25,8 @@
 #include <SPI.h>
 #include <RadioLib.h>
 
+#define ACTION
+
 #define SS   10
 #define MOSI 11
 #define MISO 12
@@ -69,10 +71,14 @@ void setup() {
   SPI.begin(SCK, MISO, MOSI, SS);
 
   // initialize SX1262 with default settings
+#ifndef ACTION  
   Serial.print(F("[SX1262] Initializing ... "));
+#endif
   int state = radio.begin();
   if (state == RADIOLIB_ERR_NONE) {
+#ifndef ACTION    
     Serial.println(F("success!"));
+#endif
   } else {
     Serial.print(F("failed, code "));
     Serial.println(state);
@@ -96,10 +102,14 @@ void setup() {
     transmitFlag = true;
   #else
     // start listening for LoRa packets on this node
+  #ifndef ACTION
     Serial.print(F("[SX1262] Starting to listen ... "));
+  #endif
     state = radio.startReceive();
     if (state == RADIOLIB_ERR_NONE) {
+  #ifndef ACTION
       Serial.println(F("success!"));
+  #endif  
     } else {
       Serial.print(F("failed, code "));
       Serial.println(state);
@@ -136,12 +146,12 @@ void loop() {
       // print the result
       if (transmissionState == RADIOLIB_ERR_NONE) {
         // packet was successfully sent
+    #ifndef ACTION
         Serial.println(F("transmission finished!"));
-
+    #endif
       } else {
         Serial.print(F("failed, code "));
         Serial.println(transmissionState);
-
       }
 
       // listen for response
@@ -156,13 +166,19 @@ void loop() {
 
       if (state == RADIOLIB_ERR_NONE) {
         // packet was successfully received
+    #ifndef ACTION  
         Serial.println(F("[SX1262] Received packet!"));
-
+    // #endif
         // print data of the packet
         Serial.print(F("[SX1262] Data:\t\t"));
+    #endif
+    #ifndef ACTION  
         Serial.println(str);
-
+    #else
+        Serial.print(str);
+    #endif
         // print RSSI (Received Signal Strength Indicator)
+      #ifndef ACTION  
         Serial.print(F("[SX1262] RSSI:\t\t"));
         Serial.print(radio.getRSSI());
         Serial.println(F(" dBm"));
@@ -171,7 +187,7 @@ void loop() {
         Serial.print(F("[SX1262] SNR:\t\t"));
         Serial.print(radio.getSNR());
         Serial.println(F(" dB"));
-
+      #endif
       }
 
       // wait a second before transmitting again
@@ -189,7 +205,9 @@ void somethingAvailableLORA(){
 
 void sendMessage(String &str){
   // send another one
+#ifndef ACTION
   Serial.print(F("[SX1262] Sending another packet ... "));
+#endif
   // transmissionState = radio.startTransmit("Hello World!");
   transmissionState = radio.startTransmit(str);
   transmitFlag = true;
