@@ -25,7 +25,7 @@
 #include <SPI.h>
 #include <RadioLib.h>
 
-#define ACTION
+#define PRINT_DEBUG
 
 #define SS   10
 #define MOSI 11
@@ -33,7 +33,7 @@
 #define SCK  13
 
 void somethingAvailableLORA();
-void sendMessage(String&);
+void sendMessage(char*, uint8_t&);
 
 // SX1262 has the following connections:
 // NSS pin:   10
@@ -44,6 +44,7 @@ SX1262 radio = new Module(10, 2, 3, 9);
 
 bool stringComplete = false;  // whether the string is complete
 String inputString = "";         // a String to hold incoming data
+// char buffer[100];
 
 // save transmission states between loops
 int transmissionState = RADIOLIB_ERR_NONE;
@@ -68,15 +69,16 @@ void setFlag(void) {
 
 void setup() {
   Serial.begin(115200);
+  Serial.setTimeout(50);
   SPI.begin(SCK, MISO, MOSI, SS);
 
   // initialize SX1262 with default settings
-#ifndef ACTION  
+#ifndef PRINT_DEBUG  
   Serial.print(F("[SX1262] Initializing ... "));
 #endif
   int state = radio.begin();
   if (state == RADIOLIB_ERR_NONE) {
-#ifndef ACTION    
+#ifndef PRINT_DEBUG    
     Serial.println(F("success!"));
 #endif
   } else {
@@ -91,6 +93,18 @@ void setup() {
     while (true) { delay(10); }
   }
 
+  // set spreading factor to 10
+  if (radio.setSpreadingFactor(10) == RADIOLIB_ERR_INVALID_SPREADING_FACTOR) {
+    Serial.println(F("Selected spreading factor is invalid for this module!"));
+    while (true) { delay(10); }
+  }
+
+  // set bandwidth to 250 kHz
+  if (radio.setBandwidth(250.0) == RADIOLIB_ERR_INVALID_BANDWIDTH) { //250
+    Serial.println(F("Selected bandwidth is invalid for this module!"));
+    while (true) { delay(10); }
+  }
+
   // set the function that will be called
   // when new packet is received
   radio.setDio1Action(setFlag);
@@ -102,12 +116,12 @@ void setup() {
     transmitFlag = true;
   #else
     // start listening for LoRa packets on this node
-  #ifndef ACTION
+  #ifndef PRINT_DEBUG
     Serial.print(F("[SX1262] Starting to listen ... "));
   #endif
     state = radio.startReceive();
     if (state == RADIOLIB_ERR_NONE) {
-  #ifndef ACTION
+  #ifndef PRINT_DEBUG
       Serial.println(F("success!"));
   #endif  
     } else {
@@ -121,18 +135,34 @@ void setup() {
 void loop() {
   
   somethingAvailableLORA();
+  
+  if(Serial.available()>0){
+    char buffer[100];
+    uint8_t length = Serial.availableForWrite();
+    // uint8_t length = 60;
+    // while(Serial.available()>0){
+    // char inChar = (char)Serial.read();
+    Serial.readBytes(buffer, length);
 
-  while(Serial.available()>0){
-    char inChar = (char)Serial.read();
-    inputString += inChar;
-    stringComplete = true;
-  }
-
+    // Serial.printf("length: %d\r\n", length);
+  #ifndef PRINT_DEBUG
+    for(uint8_t i=0;i<length;++i){
+      Serial.print(buffer[i]);
+    }
+    Serial.println();
+  #endif
+    sendMessage(buffer, length);
+    // inputString += inChar;
+    // stringComplete = true;
+  } 
+  // }
+  
+  
   if(stringComplete){
     stringComplete = false;
     // SerialPort.print(inputString);
     // ResponseStatus rs = e22ttl.sendFixedMessage(0, DESTINATION_ADDL, 23, inputString); // 20
-    sendMessage(inputString);
+    // sendMessage(buffer);
     inputString = "";
   }
 
@@ -146,7 +176,7 @@ void loop() {
       // print the result
       if (transmissionState == RADIOLIB_ERR_NONE) {
         // packet was successfully sent
-    #ifndef ACTION
+    #ifndef PRINT_DEBUG
         Serial.println(F("transmission finished!"));
     #endif
       } else {
@@ -166,19 +196,22 @@ void loop() {
 
       if (state == RADIOLIB_ERR_NONE) {
         // packet was successfully received
-    #ifndef ACTION  
+    #ifndef PRINT_DEBUG  
         Serial.println(F("[SX1262] Received packet!"));
     // #endif
         // print data of the packet
         Serial.print(F("[SX1262] Data:\t\t"));
     #endif
-    #ifndef ACTION  
+    #ifndef PRINT_DEBUG  
         Serial.println(str);
     #else
-        Serial.print(str);
+        for(uint8_t i=0;i<str.length();++i){
+          Serial.write(str[i]);
+        }
+        // Serial.flush();
     #endif
         // print RSSI (Received Signal Strength Indicator)
-      #ifndef ACTION  
+      #ifndef PRINT_DEBUG  
         Serial.print(F("[SX1262] RSSI:\t\t"));
         Serial.print(radio.getRSSI());
         Serial.println(F(" dBm"));
@@ -203,12 +236,29 @@ void somethingAvailableLORA(){
   
 }
 
-void sendMessage(String &str){
+void sendMessage(char *buff, uint8_t &length){
   // send another one
-#ifndef ACTION
+#ifndef PRINT_DEBUG
   Serial.print(F("[SX1262] Sending another packet ... "));
 #endif
+  String str1 = "";
+#ifndef PRINT_DEBUG
+  for(uint8_t i=0;i<length;++i){
+    Serial.print(buff[i]);
+  }
+  Serial.println();
+#endif
+  for(uint8_t i=0;i<length;++i){
+    str1 += buff[i];
+  }
+  str1 += '\0';
+#ifndef PRINT_DEBUG
+  for(uint8_t i=0;i<length;++i){
+    Serial.print(str1[i]);
+  }
+  Serial.println();
+#endif
   // transmissionState = radio.startTransmit("Hello World!");
-  transmissionState = radio.startTransmit(str);
+  transmissionState = radio.startTransmit(str1);
   transmitFlag = true;
 }
